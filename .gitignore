@@ -1,4 +1,5 @@
 .exe
+*.exe
 ./local_random.exe
 재고관리시스템/
 local_rag/
