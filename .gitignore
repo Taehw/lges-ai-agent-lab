@@ -6,3 +6,7 @@ __pycache__/
 .venv/
 pdf_translation/pdf-translator/uploads/
 pdf_translation/pdf-translator/outputs/
+*.py[cod]
+.pytest_cache/
+venv/
+.env
