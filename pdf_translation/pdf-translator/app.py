@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -242,5 +243,9 @@ def too_large(_):
 
 if __name__ == "__main__":
     if not os.environ.get("OPENAI_API_KEY"):
-        print("[오류] 환경 변수 OPENAI_API_KEY가 설정되지 않았습니다. 번역 기능을 사용할 수 없습니다.")
+        print(
+            "[오류] 환경 변수 OPENAI_API_KEY가 설정되지 않았습니다. 번역 기능을 사용할 수 없습니다.",
+            file=sys.stderr,
+            flush=True,
+        )
     app.run(host="127.0.0.1", port=5000, debug=False, threaded=True)

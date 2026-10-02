@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF 번역기</title>
+<script>
+  // 저장된 테마가 있으면 화면이 그려지기 전에 먼저 적용 (깜빡임 방지)
+  const savedTheme = localStorage.getItem("theme");
+  if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+</script>
+<style>
+  /* 배경색과 글자색을 짝지어 관리: 밝은 배경 = 검은 글자 */
+  :root {
+    --bg: #ffffff;
+    --fg: #111111;
+    --panel-bg: #f4f4f5;
+    --panel-fg: #111111;
+    --box-bg: #ffffff;
+    --box-fg: #1a1a1a;
+    --muted: #6b6b70;
+    --border: #d9d9de;
+    --accent: #10a37f;
+    --accent-fg: #ffffff;
+    --error: #d93025;
+    --warn-bg: #fff4e5;
+    --warn-fg: #6a3d00;
+    color-scheme: light;
+  }
+
+  /* 어두운 배경 = 흰 글자 */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #212121;
+      --fg: #ffffff;
+      --panel-bg: #171717;
+      --panel-fg: #ffffff;
+      --box-bg: #2b2b2b;
+      --box-fg: #f2f2f2;
+      --muted: #a0a0a8;
+      --border: #3c3c42;
+      --warn-bg: #3d2c10;
+      --warn-fg: #ffdca8;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #212121;
+    --fg: #ffffff;
+    --panel-bg: #171717;
+    --panel-fg: #ffffff;
+    --box-bg: #2b2b2b;
+    --box-fg: #f2f2f2;
+    --muted: #a0a0a8;
+    --border: #3c3c42;
+    --warn-bg: #3d2c10;
+    --warn-fg: #ffdca8;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+  }
+
+  body { display: flex; flex-direction: column; }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { margin: 0; font-size: 18px; }
+
+  button {
+    font: inherit;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    cursor: pointer;
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.ghost {
+    background: transparent;
+    color: var(--fg);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+  }
+
+  .warning {
+    margin: 12px 20px 0;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: var(--warn-bg);
+    color: var(--warn-fg);
+    font-size: 14px;
+  }
+
+  /* 좌/우 2단 분할 */
+  main {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 320px 1fr;
+  }
+
+  .left {
+    background: var(--panel-bg);
+    color: var(--panel-fg);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .left h2, .right h2 { margin: 0 0 8px; font-size: 14px; color: var(--muted); font-weight: 600; }
+
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 24px 12px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .dropzone.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .dropzone .filename { margin-top: 8px; font-weight: 600; word-break: break-all; }
+
+  .radios label { display: flex; align-items: center; gap: 8px; margin: 6px 0; cursor: pointer; }
+
+  .progress {
+    height: 10px;
+    border-radius: 5px;
+    background: var(--border);
+    overflow: hidden;
+  }
+  .progress > div {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    transition: width 0.3s;
+  }
+  .progress-text { margin-top: 6px; font-size: 14px; }
+
+  .status { font-size: 14px; }
+  .status.error { color: var(--error); }
+
+  .right {
+    padding: 20px;
+    display: grid;
+    grid-template-rows: 1fr 1fr auto;
+    gap: 16px;
+    min-height: 0;
+  }
+  .preview-wrap { display: flex; flex-direction: column; min-height: 0; }
+  .preview {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--box-bg);
+    color: var(--box-fg);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .preview:empty::before { content: attr(data-placeholder); color: var(--muted); }
+  .actions { display: flex; justify-content: flex-end; }
+
+  /* 900px 이하에서는 위/아래로 쌓기 */
+  @media (max-width: 900px) {
+    html, body { height: auto; }
+    main { flex: none; grid-template-columns: 1fr; }
+    .left { border-right: none; border-bottom: 1px solid var(--border); overflow: visible; }
+    .right { grid-template-rows: 320px 320px auto; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>PDF 번역기</h1>
+  <button type="button" class="ghost" id="themeToggle"></button>
+</header>
+
+{% if api_key_missing %}
+<div class="warning">
+  환경 변수 <code>OPENAI_API_KEY</code>가 설정되지 않아 번역할 수 없습니다.
+  키를 설정한 뒤 서버를 다시 시작해 주세요.
+</div>
+{% endif %}
+
+<main>
+  <!-- 왼쪽: 컨트롤 및 진행 상태 -->
+  <section class="left">
+    <div>
+      <h2>PDF 업로드</h2>
+      <div class="dropzone" id="dropzone">
+        여기로 PDF를 끌어다 놓거나 클릭해서 선택하세요
+        <div class="filename" id="fileName"></div>
+      </div>
+      <input type="file" id="fileInput" accept="application/pdf,.pdf" hidden>
+    </div>
+
+    <div>
+      <h2>번역 방향</h2>
+      <div class="radios">
+        <label><input type="radio" name="direction" value="en2ko" checked> 영어 → 한국어</label>
+        <label><input type="radio" name="direction" value="ko2en"> 한국어 → 영어</label>
+      </div>
+    </div>
+
+    <button type="button" id="startBtn" disabled>번역 시작</button>
+
+    <div>
+      <h2>진도율</h2>
+      <div class="progress"><div id="progressBar"></div></div>
+      <div class="progress-text" id="progressText">0% (0/0)</div>
+    </div>
+
+    <div>
+      <h2>상태</h2>
+      <div class="status" id="status">PDF 파일을 선택하세요.</div>
+    </div>
+  </section>
+
+  <!-- 오른쪽: 미리보기 및 저장 -->
+  <section class="right">
+    <div class="preview-wrap">
+      <h2>PDF에서 추출한 원문</h2>
+      <div class="preview" id="sourcePreview" data-placeholder="업로드하면 추출한 원문이 표시됩니다."></div>
+    </div>
+    <div class="preview-wrap">
+      <h2>번역 결과</h2>
+      <div class="preview" id="resultPreview" data-placeholder="번역이 진행되면 결과가 여기에 추가됩니다."></div>
+    </div>
+    <div class="actions">
+      <button type="button" id="saveBtn" disabled>저장</button>
+    </div>
+  </section>
+</main>
+
+<script>
+  const apiKeyMissing = {{ "true" if api_key_missing else "false" }};
+
+  const $ = (id) => document.getElementById(id);
+  const dropzone = $("dropzone");
+  const fileInput = $("fileInput");
+  const startBtn = $("startBtn");
+  const saveBtn = $("saveBtn");
+  const sourcePreview = $("sourcePreview");
+  const resultPreview = $("resultPreview");
+
+  let jobId = null;
+  let translating = false;
+
+  // ---- 테마 전환 ----
+  const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  const currentTheme = () =>
+    document.documentElement.dataset.theme || (darkQuery.matches ? "dark" : "light");
+
+  function renderThemeButton() {
+    $("themeToggle").textContent = currentTheme() === "dark" ? "☀ 라이트 모드" : "☾ 다크 모드";
+  }
+  $("themeToggle").addEventListener("click", () => {
+    const next = currentTheme() === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("theme", next);
+    renderThemeButton();
+  });
+  darkQuery.addEventListener("change", renderThemeButton);
+  renderThemeButton();
+
+  // ---- 상태 표시 ----
+  function setStatus(message, isError = false) {
+    const el = $("status");
+    el.textContent = message;
+    el.classList.toggle("error", isError);
+  }
+
+  function setProgress(percent, current, total) {
+    $("progressBar").style.width = `${percent}%`;
+    $("progressText").textContent = `${percent}% (${current}/${total})`;
+  }
+
+  // 업로드 완료 + 번역 중 아님 + API 키 있음일 때만 시작 가능
+  function updateStartButton() {
+    startBtn.disabled = !jobId || translating || apiKeyMissing;
+  }
+
+  // ---- 업로드 (클릭 선택 + 드래그 앤 드롭) ----
+  dropzone.addEventListener("click", () => { if (!translating) fileInput.click(); });
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files[0]) uploadFile(fileInput.files[0]);
+    fileInput.value = "";
+  });
+
+  ["dragenter", "dragover"].forEach((type) =>
+    dropzone.addEventListener(type, (e) => { e.preventDefault(); dropzone.classList.add("over"); })
+  );
+  ["dragleave", "drop"].forEach((type) =>
+    dropzone.addEventListener(type, (e) => { e.preventDefault(); dropzone.classList.remove("over"); })
+  );
+  dropzone.addEventListener("drop", (e) => {
+    const file = e.dataTransfer.files[0];
+    if (file && !translating) uploadFile(file);
+  });
+
+  async function uploadFile(file) {
+    // 새 파일을 올리면 이전 작업 상태를 초기화
+    jobId = null;
+    saveBtn.disabled = true;
+    updateStartButton();
+    sourcePreview.textContent = "";
+    resultPreview.textContent = "";
+    setProgress(0, 0, 0);
+    $("fileName").textContent = file.name;
+
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      setStatus("오류: PDF 파일만 업로드할 수 있습니다.", true);
+      return;
+    }
+
+    setStatus("업로드 중...");
+    const form = new FormData();
+    form.append("file", file);
+
+    try {
+      const res = await fetch("/upload", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "업로드에 실패했습니다.");
+
+      jobId = data.job_id;
+      sourcePreview.textContent = data.text;
+      setStatus(apiKeyMissing
+        ? `추출 완료 (${data.page_count}페이지) - API 키가 없어 번역할 수 없습니다.`
+        : `추출 완료 (${data.page_count}페이지)`);
+    } catch (err) {
+      setStatus(`오류: ${err.message}`, true);
+    }
+    updateStartButton();
+  }
+
+  // ---- 번역 (SSE) ----
+  startBtn.addEventListener("click", () => {
+    if (!jobId || translating) return;
+
+    const direction = document.querySelector('input[name="direction"]:checked').value;
+    translating = true;
+    updateStartButton();
+    saveBtn.disabled = true;
+    resultPreview.textContent = "";
+    setProgress(0, 0, 0);
+    setStatus("번역 중...");
+
+    const source = new EventSource(`/translate/${jobId}?direction=${direction}`);
+    let finished = false;
+
+    const finish = () => {
+      finished = true;
+      source.close();  // 닫지 않으면 EventSource가 자동 재연결한다
+      translating = false;
+      updateStartButton();
+    };
+
+    source.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+
+      if (msg.type === "progress") {
+        setProgress(msg.percent, msg.current, msg.total);
+        setStatus(`번역 중... (${msg.current}/${msg.total})`);
+        // 청크마다 결과를 이어 붙이고 맨 아래로 스크롤
+        if (resultPreview.textContent) resultPreview.textContent += "\n\n";
+        resultPreview.textContent += msg.text;
+        resultPreview.scrollTop = resultPreview.scrollHeight;
+      } else if (msg.type === "done") {
+        finish();
+        saveBtn.disabled = false;
+        setStatus(`완료 - ${msg.filename} 로 저장되었습니다.`);
+      } else if (msg.type === "error") {
+        finish();
+        setStatus(`오류: ${msg.message}`, true);
+      }
+    };
+
+    source.onerror = () => {
+      if (finished) return;
+      finish();
+      setStatus("오류: 서버와의 연결이 끊어졌습니다.", true);
+    };
+  });
+
+  // ---- 저장 ----
+  saveBtn.addEventListener("click", () => {
+    if (jobId) window.location.href = `/download/${jobId}`;
+  });
+</script>
+</body>
+</html>
