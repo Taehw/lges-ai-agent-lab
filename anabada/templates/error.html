@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}오류 {{ code }}{% endblock %}
+
+{% block content %}
+<div class="text-center py-5">
+  <h1 class="display-3 fw-bold text-success">{{ code }}</h1>
+  <p class="lead">{{ message }}</p>
+  <a href="{{ url_for('index') }}" class="btn btn-success">메인으로</a>
+</div>
+{% endblock %}
