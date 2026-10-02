@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}로그인{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-sm-10 col-md-6 col-lg-4">
+    <div class="bg-white rounded-3 shadow-sm p-4">
+      <h4 class="fw-bold mb-4 text-center">로그인</h4>
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3">
+          <label for="username" class="form-label">사용자 이름</label>
+          <input type="text" class="form-control" id="username" name="username" value="{{ username or '' }}" required autofocus>
+        </div>
+        <div class="mb-3">
+          <label for="password" class="form-label">비밀번호</label>
+          <input type="password" class="form-control" id="password" name="password" required>
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="remember" name="remember" value="1">
+          <label class="form-check-label" for="remember">로그인 상태 유지</label>
+        </div>
+        <button type="submit" class="btn btn-success w-100">로그인</button>
+      </form>
+      <p class="text-center small mt-3 mb-0">
+        아직 회원이 아니신가요? <a href="{{ url_for('register') }}">회원가입</a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
