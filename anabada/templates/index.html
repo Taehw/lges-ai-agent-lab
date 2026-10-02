@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}물품 목록{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-3 shadow-sm p-3 p-md-4 mb-4">
+  <form method="get" action="{{ url_for('index') }}" class="row g-2 align-items-center">
+    <div class="col-12 col-md">
+      <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="search" name="q" value="{{ q }}" class="form-control" placeholder="제목 또는 내용으로 검색">
+      </div>
+    </div>
+    <div class="col-auto">
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" role="switch" id="free" name="free" value="1"
+               {% if free_only %}checked{% endif %} onchange="this.form.submit()">
+        <label class="form-check-label" for="free">무료 나눔만 보기</label>
+      </div>
+    </div>
+    <div class="col-auto">
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" role="switch" id="hide_done" name="hide_done" value="1"
+               {% if hide_done %}checked{% endif %} onchange="this.form.submit()">
+        <label class="form-check-label" for="hide_done">거래가능만 보기</label>
+      </div>
+    </div>
+    <div class="col-auto">
+      <button class="btn btn-success" type="submit">검색</button>
+      {% if q or free_only or hide_done %}
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">초기화</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h5 class="mb-0">
+    {% if q %}'{{ q }}' 검색 결과{% elif free_only %}무료 나눔 물품{% else %}최근 등록된 물품{% endif %}
+    <small class="text-muted">({{ pagination.total }})</small>
+  </h5>
+</div>
+
+{% if items %}
+  <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3">
+    {% for item in items %}
+      {% include '_item_card.html' %}
+    {% endfor %}
+  </div>
+
+  {% if pagination.pages > 1 %}
+  <nav class="mt-4">
+    <ul class="pagination justify-content-center">
+      <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('index', page=pagination.prev_num, q=q or None, free=1 if free_only else None, hide_done=1 if hide_done else None) }}">&laquo;</a>
+      </li>
+      {% for p in pagination.iter_pages() %}
+        {% if p %}
+          <li class="page-item {% if p == pagination.page %}active{% endif %}">
+            <a class="page-link" href="{{ url_for('index', page=p, q=q or None, free=1 if free_only else None, hide_done=1 if hide_done else None) }}">{{ p }}</a>
+          </li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+        {% endif %}
+      {% endfor %}
+      <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('index', page=pagination.next_num, q=q or None, free=1 if free_only else None, hide_done=1 if hide_done else None) }}">&raquo;</a>
+      </li>
+    </ul>
+  </nav>
+  {% endif %}
+{% else %}
+  <div class="text-center text-muted py-5">
+    <i class="bi bi-box-seam display-4"></i>
+    <p class="mt-3">등록된 물품이 없습니다.</p>
+    {% if current_user.is_authenticated %}
+      <a href="{{ url_for('item_create') }}" class="btn btn-success">첫 물품 등록하기</a>
+    {% endif %}
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,28 @@
+<div class="col">
+  <a href="{{ url_for('item_detail', item_id=item.id) }}" class="text-decoration-none text-reset">
+    <div class="card h-100 shadow-sm item-card {% if item.is_done %}is-done{% endif %}">
+      <div class="item-thumb position-relative">
+        {% if item.image_filename %}
+          <img src="{{ url_for('static', filename='uploads/' ~ item.image_filename) }}" class="card-img-top" alt="{{ item.title }}">
+        {% else %}
+          <div class="no-image d-flex align-items-center justify-content-center text-muted">
+            <i class="bi bi-image fs-1"></i>
+          </div>
+        {% endif %}
+        {% if item.is_done %}
+          <span class="badge bg-secondary position-absolute top-0 start-0 m-2">{{ item.status }}</span>
+        {% endif %}
+        {% if item.is_free %}
+          <span class="badge bg-danger position-absolute top-0 end-0 m-2">무료 나눔</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <h6 class="card-title text-truncate mb-1">{{ item.title }}</h6>
+        <p class="fw-bold mb-1 {% if item.is_free %}text-danger{% endif %}">{{ item.price_display }}</p>
+        <p class="small text-muted mb-0">
+          {{ item.author.username }} &middot; {{ item.created_at.strftime('%Y.%m.%d') }}
+        </p>
+      </div>
+    </div>
+  </a>
+</div>
