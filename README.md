@@ -13,7 +13,7 @@
 - 병합은 파일 순서를 바꾼 뒤 하나의 PDF로 저장합니다.
 
 ```text
-cd pdf2
+cd "pdf_split&merge"
 pip install -r requirements.txt
 python app.py
 ```
@@ -31,7 +31,7 @@ python app.py
 - 1080p 이상은 보통 영상과 음원이 분리되어 있어 ffmpeg로 합칩니다. ffmpeg가 없으면 병합 다운로드는 시작하지 않습니다.
 
 ```text
-cd yt-dlp
+cd yt_download
 pip install -r requirements.txt
 python main.py
 ```
