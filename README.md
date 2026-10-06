@@ -10,6 +10,7 @@
 | `anabada` | 중고 물품 거래 게시판 (웹, 실습 중) |
 | `video_image_analysis` | 이미지·웹캠 사물 인식 (웹) |
 | `recomm_food` | 냉장고 재료 기반 요리 추천 (웹) |
+| `local_rag` | 로컬 PDF RAG 질의응답 (웹) |
 
 ---
 
@@ -152,3 +153,34 @@ python -m streamlit run app.py
 - `data/recipes.json` 수정 후 `python build_index.py`로 인덱스 재생성
 - 테스트: `pip install pytest` 후 `python -m pytest` (OpenAI 호출 없음)
 - 모델: 설명 `gpt-4o-mini`, 임베딩 `text-embedding-3-small`
+
+## 로컬 PDF RAG
+
+업로드한 PDF 내용만 근거로 질의응답. Flask 3.1.3 웹 앱, LangChain 1.3.11 + Chroma 1.1.1 검색, 로컬 LLM·임베딩.
+
+- 왼쪽: PDF 다중 업로드, 업로드된 문서 목록, `새 대화`
+- 오른쪽: 문서 기반 채팅. 관련 청크가 없거나 거리 `0.50` 초과 시 `정보가 없어서 답변할 수 없습니다`
+- 답변에 근거 문서명·페이지 표시. 같은 파일명 재업로드 시 기존 청크 교체
+- 청크: 500자, 겹침 100자, 검색 `k=4`
+- 대화 이력 최근 6턴 유지, 검색 질의에는 직전 사용자 질문 2개까지 포함
+- 제한: PDF만, 업로드 최대 200MB, 스캔본(이미지 PDF)은 텍스트 추출 실패 가능
+- CPU 전용. LLM GPU 레이어 사용 안 함 (`n_gpu_layers=0`)
+
+모델 파일은 `local_rag/models/`에 두고 Git에는 올리지 않음.
+
+| 역할 | 모델 | 버전 |
+| --- | --- | --- |
+| LLM | EXAONE-3.5-2.4B-Instruct | GGUF `Q5_K_M`, llama-cpp-python `0.3.33` |
+| 임베딩 | BGE-M3 | sentence-transformers `5.6.0`, 로컬 체크포인트 |
+
+```text
+cd local_rag
+pip install -r requirements.txt
+python app.py
+```
+
+- 접속: http://127.0.0.1:5000
+- LLM: `models/exaone_2.4b/EXAONE-3.5-2.4B-Instruct-Q5_K_M.gguf`
+- 임베딩: `models/bge-m3/`
+- 업로드 PDF(`uploads/`), 인덱스(`chroma_db/`)는 실행 중 생성, Git 제외
+- 컨텍스트 `4096`, 생성 토큰 최대 `512`, temperature `0.2`
