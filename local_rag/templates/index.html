@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF RAG Chat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">PDF</div>
+          <div>
+            <h1>Local RAG</h1>
+            <p>문서 기반 질의응답</p>
+          </div>
+        </div>
+
+        <button type="button" class="new-chat" id="newChatBtn">새 대화</button>
+
+        <label class="upload-box" id="uploadBox">
+          <input type="file" id="fileInput" accept="application/pdf,.pdf" multiple hidden />
+          <span class="upload-icon">↑</span>
+          <strong>PDF 업로드</strong>
+          <small>여러 파일을 한 번에 선택할 수 있습니다</small>
+        </label>
+        <p class="upload-hint" id="uploadStatus">PDF만 업로드할 수 있습니다.</p>
+
+        <div class="file-panel">
+          <div class="file-panel-title">업로드된 문서</div>
+          <ul class="file-list" id="fileList">
+            <li class="empty">아직 업로드된 파일이 없습니다</li>
+          </ul>
+        </div>
+
+        <div class="sidebar-foot" id="modelStatus">모델 준비 중…</div>
+      </aside>
+
+      <main class="chat">
+        <header class="chat-header">
+          <h2>문서에게 질문하기</h2>
+          <p>업로드한 PDF 내용만 근거로 답합니다</p>
+        </header>
+
+        <section class="messages" id="messages">
+          <div class="welcome" id="welcome">
+            <h3>안녕하세요</h3>
+            <p>왼쪽에서 PDF를 올린 뒤, 문서 내용에 대해 질문해 보세요.</p>
+          </div>
+        </section>
+
+        <form class="composer" id="chatForm">
+          <textarea
+            id="questionInput"
+            rows="1"
+            placeholder="문서에 대해 질문해 보세요"
+            autocomplete="off"
+          ></textarea>
+          <button type="submit" id="sendBtn" aria-label="전송">➤</button>
+        </form>
+      </main>
+    </div>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  </body>
+</html>
