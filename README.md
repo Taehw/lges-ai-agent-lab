@@ -9,6 +9,7 @@
 | `pdf_translation/pdf-translator` | PDF 영↔한 번역 (웹) |
 | `anabada` | 중고 물품 거래 게시판 (웹, 실습 중) |
 | `video_image_analysis` | 이미지·웹캠 사물 인식 (웹) |
+| `recomm_food` | 냉장고 재료 기반 요리 추천 (웹) |
 
 ---
 
@@ -125,3 +126,29 @@ python app.py
 - 최초 실행 시 모델 파일(`yolo11n.pt`, 약 5MB) 자동 다운로드, Git 제외
 - 포트 변경: `VISION_PORT` 환경 변수
 - 웹캠 사용 시 브라우저 카메라 권한 허용 필요
+
+## 냉장고 재료 요리 추천
+
+보유 재료 입력 시 직접 구축한 레시피 100개 중 만들 수 있는 요리 추천. Streamlit UI, LangChain + Chroma 검색, OpenAI 설명 생성.
+
+- 재료 입력: 자동완성 멀티셀렉트, 목록에 없는 재료 직접 입력 가능
+- 동의어 자동 변환 (`달걀`→`계란`, `쪽파`→`대파`, `표고버섯`→`버섯` 등)
+- 결과 2묶음: `지금 바로 만들 수 있어요`(부족 0개), `1~2개만 더 있으면 돼요`(부족 재료 표시)
+- 사이드바 양념 체크리스트: 체크된 양념은 보유로 간주, 체크 해제 시 부족 재료로 집계
+- 추천 순서: 부족 재료 수 오름차순, 주재료 일치율 내림차순
+- 판정·순위는 코드 계산, LLM은 추천 이유·대체 재료 설명만 담당 (설명 실패 시 추천 목록만 표시)
+- 요리 카드: 카테고리, 조리 시간, 난이도, 일치율, 재료·조리 순서 펼쳐보기
+
+실행 전 `OPENAI_API_KEY` 환경 변수 설정 필요. 미설정 시 화면에 안내 표시 후 중단.
+
+```text
+cd recomm_food
+pip install -r requirements.txt
+python -m streamlit run app.py
+```
+
+- 접속: http://localhost:8501
+- 최초 실행 시 레시피 인덱스(`chroma_db/`) 자동 생성, Git 제외
+- `data/recipes.json` 수정 후 `python build_index.py`로 인덱스 재생성
+- 테스트: `pip install pytest` 후 `python -m pytest` (OpenAI 호출 없음)
+- 모델: 설명 `gpt-4o-mini`, 임베딩 `text-embedding-3-small`
