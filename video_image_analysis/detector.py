@@ -1,16 +1,17 @@
-from pathlib import Path
+from pathlib import Path  # OS에 상관없는 파일 경로 처리
 
-import cv2
-import numpy as np
-from ultralytics import YOLO
+import cv2  # OpenCV: 색 변환, 박스/글자 그리기
+import numpy as np  # 이미지 배열 처리, 클래스별 색 생성
+from ultralytics import YOLO  # YOLO 모델 로드와 추론
 
-MODEL_PATH = Path(__file__).resolve().parent / "yolo11n.pt"
-CONF_THRESHOLD = 0.25
+MODEL_PATH = Path(__file__).resolve().parent / "yolo11n.pt"  # 없으면 첫 실행 때 자동 다운로드
+CONF_THRESHOLD = 0.25  # 이 값보다 신뢰도가 낮은 탐지는 버림
 
 _model = None
 
 
 def get_model():
+    # 모델은 처음 한 번만 불러와 재사용
     global _model
     if _model is None:
         _model = YOLO(str(MODEL_PATH))
@@ -18,6 +19,7 @@ def get_model():
 
 
 def _color_for(class_id):
+    # 같은 클래스는 항상 같은 색이 나오도록 class_id를 시드로 사용
     rng = np.random.default_rng(class_id)
     return tuple(int(c) for c in rng.integers(60, 256, size=3))
 
@@ -28,6 +30,7 @@ def draw_detections(frame_bgr, result):
     if boxes is None:
         return frame_bgr
 
+    # 이미지 크기에 비례해 선 두께와 글자 크기 결정
     thickness = max(2, round(sum(frame_bgr.shape[:2]) / 600))
     font_scale = thickness / 3
 
@@ -40,6 +43,7 @@ def draw_detections(frame_bgr, result):
         cv2.rectangle(frame_bgr, (x1, y1), (x2, y2), color, thickness, cv2.LINE_AA)
 
         (tw, th), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1)
+        # 라벨이 이미지 위쪽/오른쪽 밖으로 나가지 않게 위치 보정
         top = y1 - th - baseline - 4
         if top < 0:
             top = y1
@@ -62,6 +66,7 @@ def detect(image_rgb):
     """RGB 이미지를 받아 박스가 그려진 RGB 이미지를 돌려준다."""
     if image_rgb is None:
         return None
+    # Gradio는 RGB, OpenCV/YOLO는 BGR 기준이라 변환 후 처리
     frame_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
     result = get_model().predict(frame_bgr, conf=CONF_THRESHOLD, verbose=False)[0]
     frame_bgr = draw_detections(frame_bgr, result)
