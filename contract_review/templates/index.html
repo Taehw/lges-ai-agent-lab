@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LLM 기반 계약서 검토</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">계약</div>
+          <div>
+            <h1>계약서 검토</h1>
+            <p>가이드라인과 대조</p>
+          </div>
+        </div>
+
+        <button type="button" class="menu-btn" id="ragBtn">RAG 파일 업로드</button>
+        <input id="ragInput" type="file" accept="application/pdf,.pdf" multiple hidden />
+        <div class="panel">
+          <div class="panel-title">가이드라인</div>
+          <ul class="file-list" id="ragList">
+            <li class="empty">업로드된 파일이 없습니다</li>
+          </ul>
+        </div>
+
+        <button type="button" class="menu-btn" id="contractBtn">계약서 업로드</button>
+        <input id="contractInput" type="file" accept="application/pdf,.pdf" hidden />
+        <p class="file-name" id="contractName">계약서를 올리면 검토할 수 있습니다</p>
+
+        <!-- 계약서 업로드가 끝나야 나타난다. -->
+        <button type="button" class="menu-btn review-btn" id="reviewBtn" hidden>계약서 검토</button>
+
+        <p class="side-note">아래 질문창은 문서 검색 없이 바로 답합니다.</p>
+      </aside>
+
+      <main class="chat">
+        <header class="chat-header">
+          <h2>검토 결과</h2>
+          <p>업로드 진행률과 문장별 수정안이 여기에 표시됩니다</p>
+        </header>
+
+        <section class="messages" id="messages">
+          <div class="welcome" id="welcome">
+            <h3>LLM 기반 계약서 검토</h3>
+            <p>왼쪽에서 가이드라인 PDF와 계약서 PDF를 올린 뒤 검토를 시작하세요.</p>
+          </div>
+        </section>
+
+        <form class="composer" id="chatForm">
+          <textarea
+            id="questionInput"
+            rows="1"
+            placeholder="일반적인 질문을 입력하세요"
+            autocomplete="off"
+          ></textarea>
+          <button type="submit" id="sendBtn" aria-label="전송">보내기</button>
+        </form>
+      </main>
+    </div>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  </body>
+</html>
