@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+uploads/
+chroma_db/
+.venv/
+*.log
