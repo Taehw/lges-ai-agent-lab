@@ -174,7 +174,7 @@ BASE_TEMPLATE = """
     .layout {
       min-height: 100vh;
       display: grid;
-      grid-template-columns: 232px 1fr;
+      grid-template-columns: 232px minmax(0, 1fr);
     }
     .sidebar {
       position: sticky;
@@ -240,8 +240,9 @@ BASE_TEMPLATE = """
     }
     .admin .ok { margin: 0 8px 6px; font-weight: 600; }
     .main {
+      min-width: 0;
       padding: 28px 32px 56px;
-      max-width: 1080px;
+      max-width: 1120px;
     }
     .head-row {
       display: flex;
@@ -279,22 +280,25 @@ BASE_TEMPLATE = """
     .flash-warn { border-left-color: var(--low); background: #fff1ea; }
     .cards {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 16px;
       align-items: start;
     }
     .card {
+      min-width: 0;
       background: var(--sheet);
       border: 1px solid var(--line);
       padding: 18px 18px 14px;
       margin-bottom: 16px;
     }
     .cards .card { margin-bottom: 0; }
-    .card h3 {
-      margin: 0 0 12px;
+    .card h2, .card h3 {
+      margin: 0 0 4px;
       font-size: 18px;
       font-weight: 600;
     }
+    .card > .hint { margin: 0 0 12px; }
+    .card > form + .hint { margin-top: 14px; }
     .bg-green, .bg-blue, .bg-orange { background: var(--sheet); }
     .table-wrap { overflow-x: auto; }
     table {
@@ -326,8 +330,9 @@ BASE_TEMPLATE = """
       gap: 14px 16px;
     }
     .field { display: flex; flex-direction: column; gap: 6px; }
+    .field.wide { grid-column: 1 / -1; }
     label { font-size: 14px; font-weight: 600; color: var(--ink); }
-    .hint { margin: 0; color: var(--quiet); font-size: 13px; font-weight: 400; }
+    .hint { margin: 0; color: var(--quiet); font-size: 14px; font-weight: 400; }
     input, select, button {
       font: inherit;
       color: var(--ink);
@@ -349,7 +354,9 @@ BASE_TEMPLATE = """
     button:disabled { opacity: .6; cursor: wait; }
     .btn-sub { background: #fff; color: var(--ink); border-color: var(--line); }
     .line { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-    .danger {
+    td.danger,
+    tr.is-selected td.danger,
+    tbody tr:hover td.danger {
       background: var(--tape);
       color: var(--ink);
       font-weight: 700;
@@ -464,8 +471,34 @@ BASE_TEMPLATE = """
     .chat-input input { min-width: 0; }
     @media (max-width: 860px) {
       .layout { grid-template-columns: 1fr; }
-      .sidebar { position: static; height: auto; }
+      .sidebar {
+        position: static;
+        height: auto;
+        padding: 14px 12px 8px;
+      }
+      .brand { margin-bottom: 8px; }
+      .group-title { display: none; }
+      .sidebar nav, .admin {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 4px;
+      }
+      .nav a, .admin a {
+        border-left-color: transparent;
+        border-bottom: 3px solid transparent;
+        padding: 6px 8px;
+      }
+      .nav a.active, .admin a.active {
+        border-left-color: transparent;
+        border-bottom-color: var(--tape);
+      }
+      .admin {
+        margin-top: 6px;
+        padding-top: 0;
+        border-top: 0;
+      }
       .cards, .form-grid { grid-template-columns: 1fr; }
+      .field.wide { grid-column: auto; }
       .main { padding: 20px 16px 40px; }
       .head-row { align-items: flex-start; flex-direction: column; }
       .head-row h1 { font-size: 28px; }
@@ -599,50 +632,56 @@ def dashboard() -> str:
 
     content = """
     <div class="cards">
-      <section class="card bg-green">
-        <h3>재고 부족 품목 5건</h3>
-        <table>
-          <thead><tr><th>등록일자</th><th>분류</th><th>제품명</th><th>최소재고</th><th>현재고</th></tr></thead>
-          <tbody>
-          {% for row in low_stock %}
-            <tr>
-              <td>{{ row['registered_date'] }}</td>
-              <td>{{ row['category_name'] }}</td>
-              <td>{{ row['product_name'] }}</td>
-              <td>{{ row['minimum_stock'] }}</td>
-              <td class="{{ 'danger' if row['current_stock'] <= row['minimum_stock'] else '' }}">{{ row['current_stock'] }}</td>
-            </tr>
-          {% else %}
-            <tr><td colspan="5" class="muted">재고 부족 품목이 없습니다.</td></tr>
-          {% endfor %}
-          </tbody>
-        </table>
+      <section class="card">
+        <h2>부족한 품목</h2>
+        <p class="hint">최소 재고에 닿은 것부터 5개까지 보여 줍니다.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>등록일</th><th>분류</th><th>제품명</th><th class="num">최소</th><th class="num">현재</th></tr></thead>
+            <tbody>
+            {% for row in low_stock %}
+              <tr>
+                <td>{{ row['registered_date'] }}</td>
+                <td>{{ row['category_name'] }}</td>
+                <td class="name">{{ row['product_name'] }}</td>
+                <td class="num">{{ row['minimum_stock'] }}</td>
+                <td class="num danger">{{ row['current_stock'] }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="5" class="empty">부족한 품목이 없습니다. 창고에 여유가 있습니다.</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </section>
-      <section class="card bg-blue">
-        <h3>최근 입출고 5건</h3>
-        <table>
-          <thead><tr><th>순번</th><th>분류</th><th>제품명</th><th>입출고</th><th>수량</th></tr></thead>
-          <tbody>
-          {% for row in recent_movements %}
-            <tr>
-              <td>{{ row['id'] }}</td>
-              <td>{{ row['category_name'] }}</td>
-              <td>{{ row['product_name'] }}</td>
-              <td><span class="pill">{{ row['movement_type'] }}</span></td>
-              <td>{{ row['quantity'] }}</td>
-            </tr>
-          {% else %}
-            <tr><td colspan="5" class="muted">입출고 내역이 없습니다.</td></tr>
-          {% endfor %}
-          </tbody>
-        </table>
+      <section class="card">
+        <h2>최근 입출고</h2>
+        <p class="hint">방금 기록된 5건입니다.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>분류</th><th>제품명</th><th>구분</th><th class="num">수량</th></tr></thead>
+            <tbody>
+            {% for row in recent_movements %}
+              <tr>
+                <td>{{ row['category_name'] }}</td>
+                <td class="name">{{ row['product_name'] }}</td>
+                <td class="{{ 'type-in' if row['movement_type'] == '입고' else 'type-out' }}">{{ row['movement_type'] }}</td>
+                <td class="num">{{ row['quantity'] }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="4" class="empty">아직 입출고 기록이 없습니다.</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
     """
 
     return render_page(
-        title="재고 관리",
-        page_title="재고 관리",
+        title="오늘 현황",
+        page_title="오늘 현황",
+        page_lead="부족한 품목과 방금 움직인 기록을 먼저 봅니다.",
         active="dashboard",
         content=content,
         low_stock=low_stock,
@@ -654,6 +693,7 @@ def dashboard() -> str:
 def product_register() -> str:
     db = get_db()
     message = ""
+    tone = ""
     if request.method == "POST":
         registered_date = request.form.get("registered_date", today_iso()).strip()
         category_id = request.form.get("category_id", "").strip()
@@ -662,9 +702,11 @@ def product_register() -> str:
         minimum_stock = int(request.form.get("minimum_stock", "0"))
 
         if not (category_id and name):
-            message = "분류와 제품명을 입력해 주세요."
+            message = "분류와 제품명을 적어 주세요."
+            tone = "warn"
         elif initial_qty < 0 or minimum_stock < 0:
-            message = "수량은 0 이상이어야 합니다."
+            message = "수량은 0개 이상이어야 합니다."
+            tone = "warn"
         else:
             try:
                 cur = db.execute(
@@ -686,10 +728,12 @@ def product_register() -> str:
                 db.commit()
                 return redirect(url_for("product_register", ok=1))
             except sqlite3.IntegrityError:
-                message = "이미 등록된 제품명입니다."
+                message = "이미 있는 제품명입니다. 다른 이름을 적어 주세요."
+                tone = "warn"
 
     if request.args.get("ok"):
-        message = "품목 등록이 완료되었습니다."
+        message = "품목을 등록했습니다."
+        tone = "ok"
 
     products = db.execute(
         """
@@ -703,65 +747,70 @@ def product_register() -> str:
     stocks = get_stock_map()
 
     content = """
-    <section class="card bg-green">
-      <h3>품목 등록</h3>
+    <section class="card">
+      <h2>새 품목</h2>
       <form method="post">
         <div class="form-grid">
           <div class="field">
-            <label>등록일자</label>
-            <input type="date" name="registered_date" value="{{ today }}" required />
+            <label for="registered_date">등록일</label>
+            <input id="registered_date" type="date" name="registered_date" value="{{ today }}" required />
           </div>
           <div class="field">
-            <label>분류</label>
-            <select name="category_id" required>
-              <option value="">선택</option>
+            <label for="category_id">분류</label>
+            <select id="category_id" name="category_id" required>
+              <option value="">분류를 고르세요</option>
               {% for c in categories %}
                 <option value="{{ c['id'] }}">{{ c['name'] }}</option>
               {% endfor %}
             </select>
           </div>
-          <div class="field">
-            <label>제품명</label>
-            <input type="text" name="name" placeholder="제품명" required />
+          <div class="field wide">
+            <label for="product_name">제품명</label>
+            <input id="product_name" type="text" name="name" placeholder="예: CAT6 랜 케이블" required />
           </div>
           <div class="field">
-            <label>초기수량</label>
-            <input type="number" min="0" name="initial_qty" value="0" required />
+            <label for="initial_qty">처음 수량</label>
+            <input id="initial_qty" type="number" min="0" name="initial_qty" value="0" required />
+            <p class="hint">0보다 크면 입고로 함께 기록됩니다.</p>
           </div>
           <div class="field">
-            <label>최소 재고량</label>
-            <input type="number" min="0" name="minimum_stock" value="0" required />
+            <label for="minimum_stock">최소 재고</label>
+            <input id="minimum_stock" type="number" min="0" name="minimum_stock" value="0" required />
+            <p class="hint">이 개수 이하면 부족으로 표시됩니다.</p>
           </div>
         </div>
-        <div class="line"><button type="submit">등록</button></div>
+        <div class="line"><button type="submit">품목 등록하기</button></div>
       </form>
     </section>
 
-    <section class="card bg-blue" style="margin-top:14px;">
-      <h3>최근 등록 품목</h3>
-      <table>
-        <thead><tr><th>순번</th><th>등록일자</th><th>분류</th><th>제품명</th><th>재고량</th><th>최소재고</th></tr></thead>
-        <tbody>
-        {% for p in products %}
-          <tr>
-            <td>{{ p['id'] }}</td>
-            <td>{{ p['registered_date'] }}</td>
-            <td>{{ p['category_name'] }}</td>
-            <td>{{ p['name'] }}</td>
-            <td>{{ stocks.get(p['id'], 0) }}</td>
-            <td>{{ p['minimum_stock'] }}</td>
-          </tr>
-        {% else %}
-          <tr><td colspan="6" class="muted">등록된 품목이 없습니다.</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
+    <section class="card">
+      <h2>최근 등록</h2>
+      <p class="hint">방금 올린 품목 10개입니다.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>등록일</th><th>분류</th><th>제품명</th><th class="num">현재</th><th class="num">최소</th></tr></thead>
+          <tbody>
+          {% for p in products %}
+            <tr>
+              <td>{{ p['registered_date'] }}</td>
+              <td>{{ p['category_name'] }}</td>
+              <td class="name">{{ p['name'] }}</td>
+              <td class="num {{ 'danger' if stocks.get(p['id'], 0) <= p['minimum_stock'] else '' }}">{{ stocks.get(p['id'], 0) }}</td>
+              <td class="num">{{ p['minimum_stock'] }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5" class="empty">등록된 품목이 없습니다. 위 칸에 첫 품목을 적어 보세요.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </section>
     """
 
     return render_page(
         title="품목 등록",
         page_title="품목 등록",
+        page_lead="창고에 올릴 물건의 이름과 최소 재고를 적습니다.",
         active="product",
         content=content,
         categories=get_categories(),
@@ -769,6 +818,7 @@ def product_register() -> str:
         stocks=stocks,
         today=today_iso(),
         message=message,
+        tone=tone,
     )
 
 
@@ -776,6 +826,7 @@ def product_register() -> str:
 def movement_register() -> str:
     db = get_db()
     message = ""
+    tone = ""
     q = request.args.get("q", "").strip()
     page = int(request.args.get("page", "1"))
     selected_product_id = int(request.args.get("product_id", "0") or "0")
@@ -787,15 +838,19 @@ def movement_register() -> str:
         quantity = int(request.form.get("quantity", "0"))
         product = find_product(selected_product_id)
         if not product:
-            message = "제품을 선택해 주세요."
+            message = "먼저 목록에서 품목을 고르세요."
+            tone = "warn"
         elif movement_type not in ("입고", "출고"):
-            message = "입출고 유형이 올바르지 않습니다."
+            message = "입고 또는 출고를 고르세요."
+            tone = "warn"
         elif quantity <= 0:
-            message = "수량은 1 이상이어야 합니다."
+            message = "수량은 1개 이상이어야 합니다."
+            tone = "warn"
         else:
             current_stock = get_stock_map().get(selected_product_id, 0)
             if movement_type == "출고" and quantity > current_stock:
-                message = f"현재고({current_stock})보다 많이 출고할 수 없습니다."
+                message = f"지금 {current_stock}개보다 많이 내보낼 수 없습니다."
+                tone = "warn"
             else:
                 db.execute(
                     """
@@ -810,7 +865,8 @@ def movement_register() -> str:
                 )
 
     if request.args.get("ok"):
-        message = "입출고 등록이 완료되었습니다."
+        message = "입출고를 기록했습니다."
+        tone = "ok"
 
     where_sql = ""
     args: tuple[Any, ...] = ()
@@ -835,87 +891,80 @@ def movement_register() -> str:
     stocks = get_stock_map()
 
     content = """
-    <section class="card bg-blue">
-      <h3>제품 검색</h3>
-      <form class="search-box" method="get">
-        <input type="text" name="q" value="{{ q }}" placeholder="제품명을 검색하세요" />
-        <button type="submit">검색</button>
-      </form>
-      <table>
-        <thead><tr><th>순번</th><th>등록일자</th><th>분류</th><th>제품명</th><th>현재고</th><th>선택</th></tr></thead>
-        <tbody>
-        {% for p in products %}
-          <tr>
-            <td>{{ p['id'] }}</td>
-            <td>{{ p['registered_date'] }}</td>
-            <td>{{ p['category_name'] }}</td>
-            <td>{{ p['name'] }}</td>
-            <td>{{ stocks.get(p['id'], 0) }}</td>
-            <td><a href="{{ url_for('movement_register', q=q, page=page, product_id=p['id']) }}">선택</a></td>
-          </tr>
-        {% else %}
-          <tr><td colspan="6" class="muted">조회 결과가 없습니다.</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
-      <div class="pager">
-        {% if page > 1 %}
-          <a href="{{ url_for('movement_register', q=q, page=page-1, product_id=selected_id) }}">이전</a>
-        {% endif %}
-        <span>{{ page }} / {{ pages }}</span>
-        {% if page < pages %}
-          <a href="{{ url_for('movement_register', q=q, page=page+1, product_id=selected_id) }}">다음</a>
-        {% endif %}
-      </div>
-    </section>
-
-    <section class="card bg-orange" style="margin-top:14px;">
-      <h3>입출고 등록</h3>
+    <section class="card">
+      <h2>수량 적기</h2>
       {% if selected %}
+        <p class="picked">고른 품목은 {{ selected['name'] }}입니다. {{ selected['category_name'] }}, 지금 {{ stocks.get(selected['id'], 0) }}개 있습니다.</p>
         <form method="post">
           <input type="hidden" name="product_id" value="{{ selected['id'] }}" />
           <div class="form-grid">
             <div class="field">
-              <label>등록일자</label>
-              <input type="date" name="movement_date" value="{{ today }}" required />
+              <label for="movement_date">날짜</label>
+              <input id="movement_date" type="date" name="movement_date" value="{{ today }}" required />
             </div>
             <div class="field">
-              <label>분류</label>
-              <input type="text" value="{{ selected['category_name'] }}" readonly />
-            </div>
-            <div class="field">
-              <label>제품명</label>
-              <input type="text" value="{{ selected['name'] }}" readonly />
-            </div>
-            <div class="field">
-              <label>입출고</label>
-              <select name="movement_type" required>
-                <option value="입고">입고</option>
-                <option value="출고">출고</option>
+              <label for="movement_type">입고인지 출고인지</label>
+              <select id="movement_type" name="movement_type" required>
+                <option value="입고">입고, 들어옴</option>
+                <option value="출고">출고, 나감</option>
               </select>
             </div>
             <div class="field">
-              <label>수량</label>
-              <input type="number" min="1" name="quantity" required />
-            </div>
-            <div class="field">
-              <label>현재고</label>
-              <input type="text" value="{{ stocks.get(selected['id'], 0) }}" readonly />
+              <label for="quantity">수량</label>
+              <input id="quantity" type="number" min="1" name="quantity" required />
             </div>
           </div>
-          <div class="line"><button type="submit">입출고 등록</button></div>
+          <div class="line"><button type="submit">입출고 기록하기</button></div>
         </form>
       {% else %}
-        <p class="muted">상단 리스트에서 제품을 선택해 주세요.</p>
+        <p class="empty">아래 목록에서 품목을 고르면 여기에 수량을 적을 수 있습니다.</p>
       {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>품목 찾기</h2>
+      <form class="search-box" method="get">
+        <input type="text" name="q" value="{{ q }}" placeholder="제품명으로 찾기" aria-label="제품명으로 찾기" />
+        {% if selected_id %}<input type="hidden" name="product_id" value="{{ selected_id }}" />{% endif %}
+        <button type="submit">찾기</button>
+      </form>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>등록일</th><th>분류</th><th>제품명</th><th class="num">현재</th><th></th></tr></thead>
+          <tbody>
+          {% for p in products %}
+            <tr class="{{ 'is-selected' if selected_id == p['id'] else '' }}">
+              <td>{{ p['registered_date'] }}</td>
+              <td>{{ p['category_name'] }}</td>
+              <td class="name">{{ p['name'] }}</td>
+              <td class="num {{ 'danger' if stocks.get(p['id'], 0) <= p['minimum_stock'] else '' }}">{{ stocks.get(p['id'], 0) }}</td>
+              <td><a class="row-action" href="{{ url_for('movement_register', q=q, page=page, product_id=p['id']) }}">고르기</a></td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5" class="empty">이 이름의 품목이 없습니다. 다른 이름으로 찾아 보세요.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="pager">
+        {% if page > 1 %}
+          <a href="{{ url_for('movement_register', q=q, page=page-1, product_id=selected_id) }}">이전</a>
+        {% endif %}
+        <span>{{ page }}쪽 / {{ pages }}쪽</span>
+        {% if page < pages %}
+          <a href="{{ url_for('movement_register', q=q, page=page+1, product_id=selected_id) }}">다음</a>
+        {% endif %}
+      </div>
     </section>
     """
 
     return render_page(
         title="입출고 등록",
         page_title="입출고 등록",
+        page_lead="품목을 고른 다음, 들어온 수량이나 나간 수량을 적습니다.",
         active="movement",
         content=content,
+        tone=tone,
         q=q,
         page=pg["page"],
         pages=pg["pages"],
@@ -951,37 +1000,44 @@ def inventory_status() -> str:
     sliced = rows[pg["offset"] : pg["offset"] + pg["per_page"]]
 
     content = """
-    <section class="card bg-blue">
-      <h3>재고 현황 (재고량 적은 순)</h3>
-      <table>
-        <thead><tr><th>순번</th><th>최근 입출고 일자</th><th>분류</th><th>제품명</th><th>재고량</th><th>최소 재고량</th><th>상태</th></tr></thead>
-        <tbody>
-        {% for r in rows %}
-          <tr>
-            <td>{{ r['id'] }}</td>
-            <td>{{ r['recent_movement_date'] or '-' }}</td>
-            <td>{{ r['category_name'] }}</td>
-            <td>{{ r['name'] }}</td>
-            <td class="{{ 'danger' if r['stock'] <= r['minimum_stock'] else '' }}">{{ r['stock'] }}</td>
-            <td>{{ r['minimum_stock'] }}</td>
-            <td>
-              {% if r['stock'] <= r['minimum_stock'] %}
-                <span class="pill" style="background:#ffe8e2;color:#b6472e;">부족</span>
-              {% else %}
-                <span class="pill" style="background:#e6f7ed;color:#237447;">정상</span>
-              {% endif %}
-            </td>
-          </tr>
-        {% else %}
-          <tr><td colspan="7" class="muted">등록된 재고가 없습니다.</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
+    <section class="card">
+      <h2>수량이 적은 순</h2>
+      <p class="hint">노란 칸은 최소 재고에 닿았거나 그 아래입니다.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>최근 입출고</th>
+              <th>분류</th>
+              <th>제품명</th>
+              <th class="num">현재</th>
+              <th class="num">최소</th>
+              <th>상태</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for r in rows %}
+            <tr>
+              <td>{{ r['recent_movement_date'] or '기록 없음' }}</td>
+              <td>{{ r['category_name'] }}</td>
+              <td class="name">{{ r['name'] }}</td>
+              <td class="num {{ 'danger' if r['stock'] <= r['minimum_stock'] else '' }}">{{ r['stock'] }}</td>
+              <td class="num">{{ r['minimum_stock'] }}</td>
+              <td class="{{ 'status-low' if r['stock'] <= r['minimum_stock'] else 'status-ok' }}">
+                {{ '부족' if r['stock'] <= r['minimum_stock'] else '정상' }}
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6" class="empty">등록된 품목이 없습니다. 품목 등록에서 첫 물건을 올려 보세요.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
       <div class="pager">
         {% if page > 1 %}
           <a href="{{ url_for('inventory_status', page=page-1) }}">이전</a>
         {% endif %}
-        <span>{{ page }} / {{ pages }}</span>
+        <span>{{ page }}쪽 / {{ pages }}쪽</span>
         {% if page < pages %}
           <a href="{{ url_for('inventory_status', page=page+1) }}">다음</a>
         {% endif %}
@@ -992,6 +1048,7 @@ def inventory_status() -> str:
     return render_page(
         title="재고 현황",
         page_title="재고 현황",
+        page_lead="수량이 적은 품목부터 보여 줍니다.",
         active="inventory",
         content=content,
         rows=sliced,
@@ -1053,71 +1110,73 @@ def product_history() -> str:
         history_with_stock.append({**dict(row), "stock_after": running})
 
     content = """
-    <section class="card bg-blue">
-      <h3>품목 검색</h3>
+    <section class="card">
+      <h2>입출고 기록</h2>
+      {% if selected %}
+        <p class="picked">{{ selected['name'] }} 기록입니다. 분류는 {{ selected['category_name'] }}이고, 지금 {{ stocks.get(selected['id'], 0) }}개 있습니다.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>날짜</th><th>구분</th><th class="num">수량</th><th class="num">남은 수량</th></tr></thead>
+            <tbody>
+            {% for row in history_rows %}
+              <tr>
+                <td>{{ row['movement_date'] }}</td>
+                <td class="{{ 'type-in' if row['movement_type'] == '입고' else 'type-out' }}">{{ row['movement_type'] }}</td>
+                <td class="num">{{ row['quantity'] }}</td>
+                <td class="num">{{ row['stock_after'] }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="4" class="empty">아직 이 품목의 입출고 기록이 없습니다.</td></tr>
+            {% endfor %}
+          </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="empty">아래 목록에서 품목을 고르면 그때그때 남은 수량이 이어집니다.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>품목 찾기</h2>
       <form class="search-box" method="get">
-        <input type="text" name="q" value="{{ q }}" placeholder="제품명을 검색하세요" />
-        <button type="submit">검색</button>
+        <input type="text" name="q" value="{{ q }}" placeholder="제품명으로 찾기" aria-label="제품명으로 찾기" />
+        {% if selected_id %}<input type="hidden" name="product_id" value="{{ selected_id }}" />{% endif %}
+        <button type="submit">찾기</button>
       </form>
-      <table>
-        <thead><tr><th>순번</th><th>등록일자</th><th>분류</th><th>제품명</th><th>현재고</th><th>선택</th></tr></thead>
-        <tbody>
-        {% for p in products %}
-          <tr>
-            <td>{{ p['id'] }}</td>
-            <td>{{ p['registered_date'] }}</td>
-            <td>{{ p['category_name'] }}</td>
-            <td>{{ p['name'] }}</td>
-            <td>{{ stocks.get(p['id'], 0) }}</td>
-            <td><a href="{{ url_for('product_history', q=q, page=page, product_id=p['id']) }}">보기</a></td>
-          </tr>
-        {% else %}
-          <tr><td colspan="6" class="muted">조회 결과가 없습니다.</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>등록일</th><th>분류</th><th>제품명</th><th class="num">현재</th><th></th></tr></thead>
+          <tbody>
+          {% for p in products %}
+            <tr class="{{ 'is-selected' if selected_id == p['id'] else '' }}">
+              <td>{{ p['registered_date'] }}</td>
+              <td>{{ p['category_name'] }}</td>
+              <td class="name">{{ p['name'] }}</td>
+              <td class="num {{ 'danger' if stocks.get(p['id'], 0) <= p['minimum_stock'] else '' }}">{{ stocks.get(p['id'], 0) }}</td>
+              <td><a class="row-action" href="{{ url_for('product_history', q=q, page=page, product_id=p['id']) }}">기록 보기</a></td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5" class="empty">이 이름의 품목이 없습니다. 다른 이름으로 찾아 보세요.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
       <div class="pager">
         {% if page > 1 %}
           <a href="{{ url_for('product_history', q=q, page=page-1, product_id=selected_id) }}">이전</a>
         {% endif %}
-        <span>{{ page }} / {{ pages }}</span>
+        <span>{{ page }}쪽 / {{ pages }}쪽</span>
         {% if page < pages %}
           <a href="{{ url_for('product_history', q=q, page=page+1, product_id=selected_id) }}">다음</a>
         {% endif %}
       </div>
     </section>
-
-    <section class="card bg-orange" style="margin-top:14px;">
-      <h3>품목별 입출고 내역</h3>
-      {% if selected %}
-        <p class="muted"><strong>{{ selected['name'] }}</strong> / 분류 {{ selected['category_name'] }}</p>
-        <table>
-          <thead><tr><th>순번</th><th>등록일자</th><th>분류</th><th>제품명</th><th>입고/출고</th><th>수량</th><th>재고량</th></tr></thead>
-          <tbody>
-          {% for row in history_rows %}
-            <tr>
-              <td>{{ row['id'] }}</td>
-              <td>{{ row['movement_date'] }}</td>
-              <td>{{ row['category_name'] }}</td>
-              <td>{{ row['product_name'] }}</td>
-              <td>{{ row['movement_type'] }}</td>
-              <td>{{ row['quantity'] }}</td>
-              <td>{{ row['stock_after'] }}</td>
-            </tr>
-          {% else %}
-            <tr><td colspan="7" class="muted">입출고 내역이 없습니다.</td></tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      {% else %}
-        <p class="muted">상단에서 제품을 선택해 주세요.</p>
-      {% endif %}
-    </section>
     """
 
     return render_page(
-        title="품목별 입출고 현황",
-        page_title="품목별 입출고 현황",
+        title="품목별 입출고",
+        page_title="품목별 입출고",
+        page_lead="품목 하나를 고르면 들어온 것과 나간 것이 순서대로 보입니다.",
         active="history",
         content=content,
         q=q,
@@ -1136,26 +1195,26 @@ def chat() -> str:
     content = """
     <section class="card chat-shell">
       <div class="chat-guide">
-        <strong>자연어로 재고를 관리하세요</strong>
-        <p>입출고 등록, 재고 조회, 신규 제품 등록과 발주 메일 발송을 요청할 수 있습니다.</p>
+        <h2>이렇게 말해 보세요</h2>
+        <p>입고, 출고, 조회, 새 품목, 발주 메일을 이 칸에 적어도 됩니다. 버튼을 누르면 그 문장이 그대로 보내집니다.</p>
         <div class="chat-examples">
-          <button type="button" class="chat-example" data-message="최소 재고량 이하 제품 알려줘">재고 부족 조회</button>
-          <button type="button" class="chat-example" data-message="재고 10개 이하 제품 목록 보여줘">10개 이하 조회</button>
+          <button type="button" class="chat-example" data-message="최소 재고량 이하 제품 알려줘">최소 재고량 이하 제품 알려줘</button>
+          <button type="button" class="chat-example" data-message="재고 10개 이하 제품 목록 보여줘">재고 10개 이하 제품 목록 보여줘</button>
           <button type="button" class="chat-example" data-message="신규 제품 등록">신규 제품 등록</button>
         </div>
       </div>
       <div id="chat-messages" class="chat-messages" aria-live="polite">
         <div class="chat-message agent">
           <div class="chat-bubble">
-            <p>안녕하세요. 재고관리 도우미입니다.</p>
-            <p>예: <code>USB-C 케이블 10개 입고</code></p>
+            <p>안녕하세요. 창고 일을 말로 도와 드립니다.</p>
+            <p>예를 들어 <code>USB-C 케이블 10개 입고</code>처럼 적어 주세요.</p>
           </div>
         </div>
       </div>
       <form id="chat-form" class="chat-input">
         <input id="chat-message" type="text" maxlength="500" autocomplete="off"
-               placeholder="재고관리 요청을 입력하세요" aria-label="재고관리 요청" required />
-        <button id="chat-submit" type="submit">전송</button>
+               placeholder="예: 니퍼 2개 출고해 줘" aria-label="재고 부탁" required />
+        <button id="chat-submit" type="submit">보내기</button>
       </form>
     </section>
     <script>
@@ -1183,7 +1242,7 @@ def chat() -> str:
           appendMessage("user", clean);
           input.value = "";
           submit.disabled = true;
-          submit.textContent = "처리 중";
+          submit.textContent = "처리하는 중";
 
           try {
             const response = await fetch("{{ url_for('chat_api') }}", {
@@ -1198,7 +1257,7 @@ def chat() -> str:
             appendMessage("agent", error.message || "서버 연결에 실패했습니다.");
           } finally {
             submit.disabled = false;
-            submit.textContent = "전송";
+            submit.textContent = "보내기";
             input.focus();
           }
         }
@@ -1260,32 +1319,36 @@ def chat_api() -> Any:
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login() -> str:
     message = ""
+    tone = ""
     if request.method == "POST":
         password = request.form.get("password", "")
         if password == ADMIN_PASSWORD:
             session["is_admin"] = True
             return redirect(url_for("admin_manage"))
-        message = "비밀번호가 올바르지 않습니다."
+        message = "비밀번호가 맞지 않습니다."
+        tone = "warn"
 
     content = """
-    <section class="card bg-blue">
-      <h3>관리자 로그인</h3>
+    <section class="card">
+      <h2>비밀번호</h2>
       <form method="post">
-        <div class="field" style="max-width:340px;">
-          <label>비밀번호</label>
-          <input type="password" name="password" required />
+        <div class="field" style="max-width:360px;">
+          <label for="password">비밀번호</label>
+          <input id="password" type="password" name="password" required autocomplete="current-password" />
         </div>
         <div class="line"><button type="submit">로그인</button></div>
       </form>
-      <p class="muted">기본 비밀번호: admin1004</p>
+      <p class="hint">수업에서 쓰는 비밀번호는 admin1004입니다.</p>
     </section>
     """
     return render_page(
         title="관리자 로그인",
         page_title="관리자 로그인",
+        page_lead="분류를 더하거나 품목 이름을 고치려면 들어옵니다.",
         active="admin",
         content=content,
         message=message,
+        tone=tone,
     )
 
 
@@ -1300,6 +1363,7 @@ def admin_manage() -> str:
     require_admin()
     db = get_db()
     message = ""
+    tone = ""
 
     if request.method == "POST":
         action = request.form.get("action", "").strip()
@@ -1309,9 +1373,11 @@ def admin_manage() -> str:
                 try:
                     db.execute("INSERT INTO categories(name) VALUES (?)", (category_name,))
                     db.commit()
-                    message = "분류가 추가되었습니다."
+                    message = "분류를 추가했습니다."
+                    tone = "ok"
                 except sqlite3.IntegrityError:
-                    message = "이미 존재하는 분류입니다."
+                    message = "이미 있는 분류입니다. 다른 이름을 적어 주세요."
+                    tone = "warn"
         elif action == "edit_product":
             product_id = int(request.form.get("product_id", "0"))
             new_name = request.form.get("new_name", "").strip()
@@ -1323,9 +1389,11 @@ def admin_manage() -> str:
                         (new_name, minimum_stock, product_id),
                     )
                     db.commit()
-                    message = "제품 정보가 수정되었습니다."
+                    message = "제품 이름과 최소 재고를 고쳤습니다."
+                    tone = "ok"
                 except sqlite3.IntegrityError:
-                    message = "이미 존재하는 제품명입니다."
+                    message = "이미 있는 제품명입니다. 다른 이름을 적어 주세요."
+                    tone = "warn"
 
     products = db.execute(
         """
@@ -1337,52 +1405,53 @@ def admin_manage() -> str:
     ).fetchall()
 
     content = """
-    <section class="card bg-green">
-      <h3>분류 추가</h3>
-      <form method="post">
+    <section class="card">
+      <h2>분류 추가</h2>
+      <p class="hint">케이블, 공구, 소모품 외에 칸이 더 필요하면 여기에 적습니다.</p>
+      <form method="post" class="search-box">
         <input type="hidden" name="action" value="add_category" />
-        <div class="line">
-          <input type="text" name="category_name" placeholder="새 분류명" required />
-          <button type="submit">추가</button>
-        </div>
+        <input type="text" name="category_name" placeholder="새 분류 이름" aria-label="새 분류 이름" required />
+        <button type="submit">분류 추가하기</button>
       </form>
     </section>
 
-    <section class="card bg-orange" style="margin-top:14px;">
-      <h3>제품명 / 최소재고 수정</h3>
-      <table>
-        <thead><tr><th>순번</th><th>분류</th><th>제품명</th><th>최소재고</th><th>수정</th></tr></thead>
-        <tbody>
-        {% for p in products %}
-          <tr>
-            <td>{{ p['id'] }}</td>
-            <td>{{ p['category_name'] }}</td>
-            <td>{{ p['name'] }}</td>
-            <td>{{ p['minimum_stock'] }}</td>
-            <td>
-              <form method="post" style="display:flex;gap:6px;">
-                <input type="hidden" name="action" value="edit_product" />
-                <input type="hidden" name="product_id" value="{{ p['id'] }}" />
-                <input type="text" name="new_name" value="{{ p['name'] }}" required />
-                <input type="number" min="0" name="minimum_stock" value="{{ p['minimum_stock'] }}" required style="width:90px;" />
-                <button type="submit">저장</button>
-              </form>
-            </td>
-          </tr>
-        {% else %}
-          <tr><td colspan="5" class="muted">등록된 제품이 없습니다.</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
+    <section class="card">
+      <h2>이름과 최소 재고</h2>
+      <p class="hint">이름을 고치고 최소 재고를 맞춘 뒤 저장합니다.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>분류</th><th>제품명과 최소 재고</th></tr></thead>
+          <tbody>
+          {% for p in products %}
+            <tr>
+              <td>{{ p['category_name'] }}</td>
+              <td>
+                <form method="post" class="inline-form">
+                  <input type="hidden" name="action" value="edit_product" />
+                  <input type="hidden" name="product_id" value="{{ p['id'] }}" />
+                  <input type="text" name="new_name" value="{{ p['name'] }}" aria-label="{{ p['name'] }} 이름" required />
+                  <input type="number" min="0" name="minimum_stock" value="{{ p['minimum_stock'] }}" aria-label="{{ p['name'] }} 최소 재고" required />
+                  <button type="submit">저장하기</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="2" class="empty">등록된 제품이 없습니다. 품목 등록에서 먼저 올려 주세요.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </section>
     """
     return render_page(
-        title="관리자 설정",
-        page_title="관리자 설정",
+        title="분류와 품목 수정",
+        page_title="분류와 품목 수정",
+        page_lead="분류를 더하고, 이름과 최소 재고를 고칩니다.",
         active="admin",
         content=content,
         products=products,
         message=message,
+        tone=tone,
     )
 
 
