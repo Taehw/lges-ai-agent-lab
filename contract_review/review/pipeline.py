@@ -59,7 +59,7 @@ class ClauseReview(BaseModel):
 
 
 def build_splitter(chunk_size: int, chunk_overlap: int) -> RecursiveCharacterTextSplitter:
-    """글자 수 기준으로 나눈다. 구분자는 줄바꿈만 쓴다."""
+    """글자 수 기준으로 나눈다. 줄바꿈 다음으로 글자 단위까지 자른다."""
     return RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,

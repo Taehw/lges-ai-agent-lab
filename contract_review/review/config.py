@@ -16,12 +16,12 @@ CONTRACT_UPLOAD_DIR = UPLOAD_DIR / "contracts"
 COLLECTION_NAME = "contract_guidelines"
 
 # 가이드라인: 30자, 5자 겹침. 계약서: 30자, 겹침 없음.
-# 구분자는 요청된 줄바꿈만 사용한다.
+# 줄바꿈으로 먼저 나누고, 빈 문자열 구분자로 30자를 넘는 긴 줄도 글자 단위로 자른다.
 RAG_CHUNK_SIZE = 30
 RAG_CHUNK_OVERLAP = 5
 CONTRACT_CHUNK_SIZE = 30
 CONTRACT_CHUNK_OVERLAP = 0
-SEPARATORS = ["\n", "\n\n"]
+SEPARATORS = ["\n", "\n\n", ""]
 
 EMBEDDING_MODEL = "text-embedding-3-small"
 CHAT_MODEL = "gpt-4o-mini"

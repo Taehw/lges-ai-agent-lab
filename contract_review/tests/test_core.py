@@ -22,13 +22,13 @@ class SplitterTests(unittest.TestCase):
         rag = build_splitter(RAG_CHUNK_SIZE, RAG_CHUNK_OVERLAP)
         contract = build_splitter(CONTRACT_CHUNK_SIZE, CONTRACT_CHUNK_OVERLAP)
 
-        self.assertEqual(SEPARATORS, ["\n", "\n\n"])
+        self.assertEqual(SEPARATORS, ["\n", "\n\n", ""])
         self.assertEqual(rag._chunk_size, 30)
         self.assertEqual(rag._chunk_overlap, 5)
         self.assertEqual(contract._chunk_size, 30)
         self.assertEqual(contract._chunk_overlap, 0)
-        self.assertEqual(rag._separators, ["\n", "\n\n"])
-        self.assertEqual(contract._separators, ["\n", "\n\n"])
+        self.assertEqual(rag._separators, ["\n", "\n\n", ""])
+        self.assertEqual(contract._separators, ["\n", "\n\n", ""])
 
     def test_short_lines_overlap_only_on_rag_splitter(self):
         text = "\n".join("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -40,10 +40,15 @@ class SplitterTests(unittest.TestCase):
         self.assertTrue(contract_chunks[1].startswith("P"))
         self.assertGreater(len(rag_chunks[1]), len(contract_chunks[1]))
 
-    def test_line_without_newline_stays_together(self):
-        # 지정한 구분자는 줄바꿈뿐이라, 줄바꿈이 없는 긴 문장은 한 덩어리로 남는다.
-        chunks = build_splitter(30, 0).split_text("가" * 80)
-        self.assertEqual(chunks, ["가" * 80])
+    def test_long_line_is_cut_to_30_characters(self):
+        text = "가" * 80
+        chunks = build_splitter(30, 0).split_text(text)
+        rag_chunks = build_splitter(30, 5).split_text(text)
+
+        self.assertEqual(chunks, ["가" * 30, "가" * 30, "가" * 20])
+        self.assertEqual(rag_chunks[0], "가" * 30)
+        self.assertEqual(rag_chunks[1][:5], rag_chunks[0][-5:])
+        self.assertLessEqual(max(len(chunk) for chunk in rag_chunks), 30)
 
 
 class RevisionTests(unittest.TestCase):
