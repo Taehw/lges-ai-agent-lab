@@ -11,6 +11,7 @@
 | `video_image_analysis` | 이미지·웹캠 사물 인식 (웹) |
 | `recomm_food` | 냉장고 재료 기반 요리 추천 (웹) |
 | `local_rag` | 로컬 PDF RAG 질의응답 (웹) |
+| `contract_review` | LLM 기반 계약서 검토 (웹) |
 
 ---
 
@@ -184,3 +185,30 @@ python app.py
 - 임베딩: `models/bge-m3/`
 - 업로드 PDF(`uploads/`), 인덱스(`chroma_db/`)는 실행 중 생성, Git 제외
 - 컨텍스트 `4096`, 생성 토큰 최대 `512`, temperature `0.2`
+
+## 계약서 검토
+
+가이드라인 PDF를 검색 근거로 두고, 계약서 문장의 위배·보완을 고쳐 보여주는 웹. Flask, LangChain, Chroma, gpt-4o-mini.
+
+- 왼쪽: `RAG 파일 업로드`(PDF 여러 개), `계약서 업로드`, 업로드가 끝나면 `계약서 검토`
+- 오른쪽: 검토 결과. 하단 질문창의 일반 질문은 문서 검색 없이 모델에 직접 요청
+- 업로드·검토 중 tqdm 진행률을 답변 영역에 표시. 검토 문장은 한 건씩 추가
+- 가이드라인 분할: 30자, 겹침 5자. 계약서 분할: 30자, 겹침 없음. 구분자 `\n`, `\n\n`
+- 줄바꿈이 없는 긴 문장은 글자 수로 다시 자르지 않고 한 덩어리로 검토
+- 임베딩 `text-embedding-3-small`, 검토·일반 질문 `gpt-4o-mini`
+- 위배 문장은 `[원문]` 바로 아래에 `[수정문구]`를 진한 파란색으로 표시. 이상 없으면 원문만 표시
+- 문장 판정은 유사 가이드라인 검색 1회와 모델 호출 1회
+
+실행 전 `OPENAI_API_KEY` 환경 변수 필요. 코드에서 키를 넣지 않음.
+
+```text
+cd contract_review
+pip install -r requirements.txt
+python app.py
+```
+
+- 접속: http://127.0.0.1:5050
+- 업로드(`uploads/`), 인덱스(`chroma_db/`)는 실행 중 생성, Git 제외
+- 테스트: `python -m unittest discover -s tests` (OpenAI 호출 없음)
+- 제한: PDF만, 업로드 최대 50MB, 스캔본은 텍스트 추출 실패 가능
+- 패키지 버전은 현재 환경 기준. LangChain `1.3.11`
