@@ -12,6 +12,7 @@
 | `recomm_food` | 냉장고 재료 기반 요리 추천 (웹) |
 | `local_rag` | 로컬 PDF RAG 질의응답 (웹) |
 | `contract_review` | LLM 기반 계약서 검토 (웹) |
+| `voc_analysis` | 고객사 VOC 분석 (웹) |
 
 ---
 
@@ -212,3 +213,31 @@ python app.py
 - 테스트: `python -m unittest discover -s tests` (OpenAI 호출 없음)
 - 제한: PDF만, 업로드 최대 50MB, 스캔본은 텍스트 추출 실패 가능
 - 패키지 버전은 현재 환경 기준. LangChain `1.3.11`
+
+## 고객사 VOC 분석
+
+업로드한 VOC CSV를 산업군·제품·분야별로 집계하고, CrewAI로 이슈와 대응 방안을 정리한 워드 보고서를 만든다. Gradio 웹, 그래프는 Plotly.
+
+- 메뉴: 파일 업로드, 통계분석, 워드클라우드, 보고서생성
+- CSV 열: 순번, 일자, 고객명, 산업군, 지역, 제품명, 분야, 불만
+- 통계: 선택한 항목의 건수 비율 막대그래프, 소수점 둘째 자리
+- 워드클라우드: 불만 키워드, 맑은 고딕
+- 보고서: 산업군별·분야별 통계, 워드클라우드, 주요 이슈, 대응 방안. `.docx` 다운로드
+- 에이전트: VOC(통계 요약), Issue(산업군별 이슈·개선 과제), Report(보고서 본문). 건수·비율·그림은 코드가 계산한다
+- 진행 로그를 결과와 함께 표시
+
+실행 전 보고서 기능은 `OPENAI_API_KEY` 필요. 통계와 워드클라우드는 키 없이 동작.
+
+```text
+cd voc_analysis
+pip install -r requirements.txt
+python app.py
+```
+
+- 접속: http://127.0.0.1:7861
+- 모델: `gpt-4o-mini`, `OPENAI_MODEL`로 변경 가능
+- 포트 변경: `VOC_PORT` 환경 변수
+- 생성 파일(`outputs/`)은 Git 제외
+- 한글 폰트: Windows `맑은 고딕` (`malgun.ttf`)
+- 테스트: `python -m unittest discover -s tests` (OpenAI 호출 없음)
+- 패키지 버전은 현재 환경 기준. CrewAI `1.15.1`, Gradio `6.19.0`
