@@ -27,6 +27,12 @@ def today_iso() -> str:
     return datetime.now().strftime("%Y-%m-%d")
 
 
+def today_label() -> str:
+    now = datetime.now()
+    weekday = ("월", "화", "수", "목", "금", "토", "일")[now.weekday()]
+    return f"{now.year}년 {now.month}월 {now.day}일 {weekday}요일"
+
+
 def get_db() -> sqlite3.Connection:
     if "db" not in g:
         g.db = sqlite3.connect(DB_PATH)
@@ -125,171 +131,277 @@ BASE_TEMPLATE = """
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{{ title }} - 소형창고 재고관리</title>
+  <title>{{ title }} · 작은창고</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #f4fbff;
-      --sidebar: #f3fff5;
-      --card: #ffffff;
-      --text: #243238;
-      --muted: #65838e;
-      --green: #dff7e4;
-      --blue: #dceeff;
-      --orange: #ffe9d6;
-      --border: #d4e4ec;
-      --accent: #2c7bb5;
-      --ok: #1f8b56;
-      --warn: #d9740f;
+      --floor: #e4eee7;
+      --sheet: #fffefb;
+      --ink: #1b2a24;
+      --quiet: #3e5148;
+      --line: #c5d2cb;
+      --tape: #f0c419;
+      --action: #0d5136;
+      --action-ink: #f3fff8;
+      --low: #8a3412;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: "Segoe UI", "Noto Sans KR", sans-serif;
-      background: linear-gradient(140deg, #f4fff6, #f3faff, #fff8ef);
-      color: var(--text);
+      font-family: "IBM Plex Sans KR", "Malgun Gothic", sans-serif;
+      background: var(--floor);
+      color: var(--ink);
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    .skip {
+      position: absolute;
+      left: 12px;
+      top: -48px;
+      z-index: 5;
+      background: var(--ink);
+      color: #fff;
+      padding: 8px 12px;
+      text-decoration: none;
+    }
+    .skip:focus { top: 12px; }
+    :focus-visible {
+      outline: 3px solid var(--action);
+      outline-offset: 2px;
     }
     .layout {
       min-height: 100vh;
       display: grid;
-      grid-template-columns: 20% 80%;
+      grid-template-columns: 232px 1fr;
     }
     .sidebar {
-      border-right: 1px solid var(--border);
-      background: var(--sidebar);
-      padding: 24px 20px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--line);
+      background: #f7fbf8;
+      padding: 22px 16px 18px;
     }
-    .brand { font-size: 20px; font-weight: 700; margin-bottom: 14px; }
-    .sub { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
-    .group-title {
-      margin-top: 18px;
-      margin-bottom: 10px;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-    }
-    .nav a {
-      display: block;
-      margin-bottom: 8px;
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0 6px 22px;
+      color: inherit;
       text-decoration: none;
-      color: var(--text);
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid transparent;
     }
-    .nav a.active { background: #e7f8ec; border-color: #caedd6; }
-    .nav a:hover { border-color: var(--border); background: #f8fdff; }
+    .brand-mark {
+      width: 8px;
+      height: 36px;
+      background: var(--tape);
+      flex: none;
+    }
+    .brand-name {
+      display: block;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+    }
+    .sub {
+      display: block;
+      margin-top: 2px;
+      color: var(--quiet);
+      font-size: 13px;
+    }
+    .group-title {
+      margin: 18px 8px 4px;
+      color: var(--quiet);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .nav a, .admin a {
+      display: block;
+      margin: 2px 0;
+      padding: 8px 10px 8px 12px;
+      border-left: 4px solid transparent;
+      color: var(--ink);
+      text-decoration: none;
+    }
+    .nav a.active, .admin a.active {
+      border-left-color: var(--tape);
+      background: #fff6d0;
+      font-weight: 600;
+    }
+    .nav a:hover, .admin a:hover { background: #eef5f0; }
     .admin {
-      margin-top: 20px;
-      padding-top: 12px;
-      border-top: 1px solid var(--border);
-      font-size: 14px;
+      margin-top: auto;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
     }
+    .admin .ok { margin: 0 8px 6px; font-weight: 600; }
     .main {
-      padding: 24px;
+      padding: 28px 32px 56px;
+      max-width: 1080px;
     }
     .head-row {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 14px;
+      align-items: flex-end;
+      gap: 16px;
+      margin-bottom: 18px;
     }
     .head-row h1 {
       margin: 0;
-      font-size: 36px;
-      letter-spacing: -1px;
+      font-size: 32px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      line-height: 1.25;
+    }
+    .page-lead {
+      margin: 8px 0 0;
+      max-width: 38rem;
+      color: var(--quiet);
     }
     .badge {
-      display: inline-block;
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 6px 11px;
-      font-size: 12px;
-      color: var(--muted);
+      margin: 0;
+      color: var(--quiet);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
     .flash {
-      margin-bottom: 12px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid #cae4f5;
-      background: #edf7ff;
-      font-size: 14px;
+      margin: 0 0 16px;
+      padding: 12px 14px;
+      border-left: 6px solid var(--tape);
+      background: var(--sheet);
+      font-size: 16px;
     }
+    .flash-ok { border-left-color: var(--action); background: #e7f5ee; }
+    .flash-warn { border-left-color: var(--low); background: #fff1ea; }
     .cards {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 14px;
-      margin-bottom: 14px;
+      gap: 16px;
+      align-items: start;
     }
     .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 16px;
-      box-shadow: 0 8px 20px rgba(55, 84, 126, 0.04);
+      background: var(--sheet);
+      border: 1px solid var(--line);
+      padding: 18px 18px 14px;
+      margin-bottom: 16px;
     }
-    .card h3 { margin: 0 0 10px; font-size: 16px; }
-    .bg-green { background: linear-gradient(0deg, #fff, #f6fff8); }
-    .bg-blue { background: linear-gradient(0deg, #fff, #f5f9ff); }
-    .bg-orange { background: linear-gradient(0deg, #fff, #fffaf5); }
+    .cards .card { margin-bottom: 0; }
+    .card h3 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .bg-green, .bg-blue, .bg-orange { background: var(--sheet); }
+    .table-wrap { overflow-x: auto; }
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 14px;
+      font-size: 15px;
     }
     th, td {
       text-align: left;
-      padding: 9px 8px;
-      border-bottom: 1px solid #edf2f5;
-      white-space: nowrap;
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: middle;
     }
-    th { color: var(--muted); font-size: 12px; }
+    th {
+      color: var(--quiet);
+      font-size: 13px;
+      font-weight: 600;
+      border-bottom: 2px solid var(--ink);
+    }
+    td { font-variant-numeric: tabular-nums; }
+    tbody tr:hover td { background: #f3f8f4; }
+    tr.is-selected td { background: #fff6d0; }
+    tr.is-selected:hover td { background: #fff6d0; }
+    td.num, th.num { text-align: right; }
+    td.name { font-weight: 600; }
     .form-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(180px, 1fr));
-      gap: 10px;
+      gap: 14px 16px;
     }
     .field { display: flex; flex-direction: column; gap: 6px; }
-    label { font-size: 12px; color: var(--muted); }
+    label { font-size: 14px; font-weight: 600; color: var(--ink); }
+    .hint { margin: 0; color: var(--quiet); font-size: 13px; font-weight: 400; }
     input, select, button {
       font: inherit;
-      padding: 9px 10px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
+      color: var(--ink);
+      padding: 10px 12px;
+      min-height: 44px;
+      border: 1px solid #b7c6be;
+      border-radius: 8px;
       background: #fff;
     }
+    input[readonly] { background: #f3f6f4; color: var(--quiet); }
     button {
       cursor: pointer;
-      background: var(--accent);
-      color: #fff;
-      border-color: #2c7bb5;
+      width: fit-content;
+      background: var(--action);
+      color: var(--action-ink);
+      border-color: var(--action);
       font-weight: 600;
     }
-    .btn-sub { background: #fff; color: var(--text); }
-    .line { margin-top: 12px; display: flex; gap: 8px; align-items: center; }
-    .danger { color: #c2462b; }
-    .ok { color: var(--ok); }
-    .pill {
-      display: inline-block;
-      border-radius: 999px;
-      font-size: 12px;
-      padding: 2px 8px;
-      background: #eef5fa;
-      color: #3f6786;
+    button:disabled { opacity: .6; cursor: wait; }
+    .btn-sub { background: #fff; color: var(--ink); border-color: var(--line); }
+    .line { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .danger {
+      background: var(--tape);
+      color: var(--ink);
+      font-weight: 700;
     }
+    .ok { color: var(--action); }
+    .pill { font-weight: 600; }
+    .status-low { color: var(--low); font-weight: 700; }
+    .status-ok { color: var(--action); font-weight: 600; }
+    .type-in { color: var(--action); font-weight: 600; }
+    .type-out { color: var(--low); font-weight: 600; }
     .pager {
-      margin-top: 12px;
+      margin-top: 14px;
       display: flex;
       gap: 8px;
       align-items: center;
-      justify-content: center;
     }
-    .muted { color: var(--muted); }
-    .search-box { display: flex; gap: 8px; margin-bottom: 12px; }
-    .search-box input { flex: 1; }
+    .pager a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 40px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .pager a:hover { background: #eef5f0; }
+    .pager span { color: var(--quiet); font-variant-numeric: tabular-nums; }
+    .muted { color: var(--quiet); }
+    .empty { margin: 4px 0 8px; color: var(--quiet); }
+    .picked {
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      background: #fff6d0;
+      border-left: 6px solid var(--tape);
+      font-weight: 600;
+    }
+    a.row-action {
+      color: var(--action);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    a.row-action:hover { text-decoration: underline; }
+    .search-box { display: flex; gap: 8px; margin-bottom: 14px; }
+    .search-box input { flex: 1; min-width: 0; }
+    .inline-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .inline-form input[type="text"] { min-width: 12rem; flex: 1; }
+    .inline-form input[type="number"] { width: 7rem; }
     .chat-shell {
-      height: calc(100vh - 145px);
+      height: calc(100vh - 168px);
       min-height: 520px;
       display: grid;
       grid-template-rows: auto 1fr auto;
@@ -297,114 +409,123 @@ BASE_TEMPLATE = """
       padding: 0;
     }
     .chat-guide {
-      padding: 16px;
-      border-bottom: 1px solid var(--border);
-      background: linear-gradient(90deg, #f5fff7, #f4f9ff);
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
     }
-    .chat-guide p { margin: 6px 0 10px; color: var(--muted); }
-    .chat-examples { display: flex; flex-wrap: wrap; gap: 7px; }
+    .chat-guide p { margin: 6px 0 12px; color: var(--quiet); }
+    .chat-examples { display: flex; flex-wrap: wrap; gap: 8px; }
     .chat-example {
-      padding: 6px 9px;
-      color: #3f6786;
       background: #fff;
-      border-color: var(--border);
-      font-size: 12px;
+      color: var(--ink);
+      border-color: var(--line);
       font-weight: 500;
     }
     .chat-messages {
       overflow-y: auto;
       padding: 18px;
-      background: #fbfdfe;
+      background: #f3f7f4;
     }
     .chat-message {
       display: flex;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
     .chat-message.user { justify-content: flex-end; }
     .chat-bubble {
-      max-width: min(760px, 86%);
-      padding: 11px 13px;
-      border-radius: 14px;
+      max-width: min(720px, 88%);
+      padding: 12px 14px;
+      border-radius: 8px;
       line-height: 1.55;
       overflow-wrap: anywhere;
     }
     .chat-message.agent .chat-bubble {
-      background: #fff;
-      border: 1px solid var(--border);
-      border-top-left-radius: 4px;
+      background: var(--sheet);
+      border: 1px solid var(--line);
     }
     .chat-message.user .chat-bubble {
-      background: #dceeff;
-      border: 1px solid #c4dff5;
-      border-top-right-radius: 4px;
+      background: #e5f3eb;
+      border: 1px solid #c5e0d1;
     }
-    .chat-bubble p { margin: 0 0 7px; }
+    .chat-bubble p { margin: 0 0 8px; }
     .chat-bubble p:last-child { margin-bottom: 0; }
     .chat-bubble code {
-      padding: 2px 5px;
-      border-radius: 5px;
-      background: #f0f4f6;
-      font-family: Consolas, monospace;
+      padding: 1px 4px;
+      background: #f3f6f4;
+      font-family: inherit;
     }
     .chat-table-wrap { overflow-x: auto; margin-top: 8px; }
     .chat-input {
       display: grid;
       grid-template-columns: 1fr auto;
-      gap: 9px;
+      gap: 8px;
       padding: 14px;
-      border-top: 1px solid var(--border);
-      background: #fff;
+      border-top: 1px solid var(--line);
+      background: var(--sheet);
     }
     .chat-input input { min-width: 0; }
-    .chat-input button:disabled { opacity: .55; cursor: wait; }
-    @media (max-width: 1000px) {
+    @media (max-width: 860px) {
       .layout { grid-template-columns: 1fr; }
-      .cards { grid-template-columns: 1fr; }
-      .form-grid { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; }
+      .cards, .form-grid { grid-template-columns: 1fr; }
+      .main { padding: 20px 16px 40px; }
+      .head-row { align-items: flex-start; flex-direction: column; }
+      .head-row h1 { font-size: 28px; }
       .chat-shell { height: 70vh; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { scroll-behavior: auto; }
     }
   </style>
 </head>
 <body>
+  <a class="skip" href="#content">본문으로 이동</a>
   <div class="layout">
     <aside class="sidebar">
-      <div class="brand">stockroom</div>
-      <div class="sub">SMALL WAREHOUSE</div>
+      <a class="brand" href="{{ url_for('dashboard') }}">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>
+          <span class="brand-name">작은창고</span>
+          <span class="sub">케이블, 공구, 소모품</span>
+        </span>
+      </a>
 
-      <div class="group-title">등록</div>
-      <div class="nav">
+      <div class="group-title">살펴보기</div>
+      <nav class="nav">
+        <a href="{{ url_for('dashboard') }}" class="{{ 'active' if active == 'dashboard' else '' }}">오늘 현황</a>
+      </nav>
+
+      <div class="group-title">기록하기</div>
+      <nav class="nav">
         <a href="{{ url_for('product_register') }}" class="{{ 'active' if active == 'product' else '' }}">품목 등록</a>
         <a href="{{ url_for('movement_register') }}" class="{{ 'active' if active == 'movement' else '' }}">입출고 등록</a>
-      </div>
+      </nav>
 
-      <div class="group-title">조회</div>
-      <div class="nav">
+      <div class="group-title">찾아보기</div>
+      <nav class="nav">
         <a href="{{ url_for('inventory_status') }}" class="{{ 'active' if active == 'inventory' else '' }}">재고 현황</a>
-        <a href="{{ url_for('product_history') }}" class="{{ 'active' if active == 'history' else '' }}">품목별 입출고 현황</a>
-      </div>
-
-      <div class="group-title">AI 도우미</div>
-      <div class="nav">
+        <a href="{{ url_for('product_history') }}" class="{{ 'active' if active == 'history' else '' }}">품목별 입출고</a>
         <a href="{{ url_for('chat') }}" class="{{ 'active' if active == 'chat' else '' }}">대화창</a>
-      </div>
+      </nav>
 
       <div class="admin">
         {% if session.get('is_admin') %}
-          <div class="ok">관리자 로그인됨</div>
-          <a href="{{ url_for('admin_manage') }}">관리자 설정</a><br />
+          <p class="ok">관리자로 들어와 있습니다</p>
+          <a href="{{ url_for('admin_manage') }}" class="{{ 'active' if active == 'admin' else '' }}">분류와 품목 수정</a>
           <a href="{{ url_for('admin_logout') }}">로그아웃</a>
         {% else %}
-          <a href="{{ url_for('admin_login') }}">관리자 로그인</a>
+          <a href="{{ url_for('admin_login') }}" class="{{ 'active' if active == 'admin' else '' }}">관리자 로그인</a>
         {% endif %}
       </div>
     </aside>
-    <main class="main">
+    <main class="main" id="content">
       <div class="head-row">
-        <h1>{{ page_title }}</h1>
-        <span class="badge">{{ today }}</span>
+        <div>
+          <h1>{{ page_title }}</h1>
+          {% if page_lead %}<p class="page-lead">{{ page_lead }}</p>{% endif %}
+        </div>
+        <p class="badge">{{ today_label }}</p>
       </div>
       {% if message %}
-      <div class="flash">{{ message }}</div>
+      <div class="flash{% if tone %} flash-{{ tone }}{% endif %}" role="status">{{ message }}</div>
       {% endif %}
       {{ content|safe }}
     </main>
@@ -421,6 +542,8 @@ def render_page(
     active: str,
     content: str,
     message: str = "",
+    page_lead: str = "",
+    tone: str = "",
     **context: Any,
 ) -> str:
     return render_template_string(
@@ -430,7 +553,10 @@ def render_page(
         active=active,
         content=render_template_string(content, **context),
         today=today_iso(),
+        today_label=today_label(),
+        page_lead=page_lead,
         message=message,
+        tone=tone,
         session=session,
         url_for=url_for,
     )
