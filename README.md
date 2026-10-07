@@ -13,6 +13,7 @@
 | `local_rag` | 로컬 PDF RAG 질의응답 (웹) |
 | `contract_review` | LLM 기반 계약서 검토 (웹) |
 | `voc_analysis` | 고객사 VOC 분석 (웹) |
+| `news_analysis` | 구글·네이버 뉴스 수집 분석 (웹) |
 
 ---
 
@@ -241,3 +242,31 @@ python app.py
 - 한글 폰트: Windows `맑은 고딕` (`malgun.ttf`)
 - 테스트: `python -m unittest discover -s tests` (OpenAI 호출 없음)
 - 패키지 버전은 현재 환경 기준. CrewAI `1.15.1`, Gradio `6.19.0`
+
+## 뉴스 분석
+
+키워드로 구글 뉴스 또는 네이버 뉴스를 모아 주제별로 묶고, 워드 보고서로 저장한다. Gradio 웹, LangGraph 노드 `news` → `analyze` → `report`, 그래프는 Plotly.
+
+- 입력: 뉴스 키워드, 수집 건수(1~30), 구글 뉴스 또는 네이버 뉴스
+- 수집: SerpAPI로 최신 뉴스를 모아 순번, 날짜, 제목, 주요내용, URL을 JSON으로 표시
+- 분석: 주제별 제목, 1000자 이내 요약, 시사점. 키워드 워드클라우드와 발생 빈도 막대그래프
+- 보고서: 그룹 제목, 요약, 시사점, 키워드 그래프, 워드클라우드를 `.docx`로 저장
+- 다운로드 버튼은 브라우저 저장 창을 연다. 저장 폴더를 입력하고 `지정 폴더에 저장`을 누르면 그 폴더에 복사한다
+- 한글: 워드클라우드와 그래프는 맑은 고딕, 워드 파일도 맑은 고딕
+
+실행 전 `news_analysis/.env`에 `SERPAPI_API_KEY`가 필요하고, 분석에는 환경 변수 `OPENAI_API_KEY`가 필요하다. 키 값은 코드와 화면에 넣지 않는다.
+
+```text
+cd news_analysis
+pip install -r requirements.txt
+copy .env.example .env
+python app.py
+```
+
+- 접속: http://127.0.0.1:7862
+- 모델: `gpt-4o-mini`, `OPENAI_MODEL`로 변경 가능
+- 포트 변경: `NEWS_PORT` 환경 변수
+- 생성 파일(`outputs/`)은 Git 제외
+- 한글 폰트: Windows `맑은 고딕` (`malgun.ttf`)
+- 테스트: `python -m unittest discover -s tests` (SerpAPI·OpenAI 호출 없음)
+- 패키지 버전은 현재 환경 기준. LangGraph `1.2.7`, Gradio `6.19.0`
