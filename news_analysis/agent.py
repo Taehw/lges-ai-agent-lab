@@ -415,18 +415,36 @@ def default_search(params: dict) -> dict:
 def collect_news(keyword: str, count: int, source: str, search_fn: SearchFn | None = None) -> tuple[list[dict], str]:
     search = search_fn or default_search
     if source == "google":
-        payload = _payload_or_error(
-            search(
-                {
-                    "engine": "google_news",
-                    "q": keyword,
-                    "gl": "kr",
-                    "hl": "ko",
-                    "so": 1,
-                }
-            )
-        )
-        items = iter_google_items(payload)
+        # google_news의 날짜 정렬(so)은 키워드(q)와 같이 쓸 수 없다.
+        # 구글 뉴스 탭에서 날짜순(sbd:1)으로 모은 뒤 요청 건수만큼 자른다.
+        items = []
+        seen: set[str] = set()
+        for page in range(MAX_PAGES):
+            if len(items) >= count:
+                break
+            params = {
+                "engine": "google",
+                "tbm": "nws",
+                "q": keyword,
+                "hl": "ko",
+                "gl": "kr",
+                "num": 10,
+                "tbs": "sbd:1",
+            }
+            if page:
+                params["start"] = page * 10
+            payload = _payload_or_error(search(params))
+            added = 0
+            for item in iter_google_items(payload):
+                if item["url"] in seen:
+                    continue
+                seen.add(item["url"])
+                items.append(item)
+                added += 1
+                if len(items) >= count:
+                    break
+            if added == 0:
+                break
     elif source == "naver":
         items = []
         seen: set[str] = set()
@@ -543,8 +561,8 @@ def build_frequency_chart(rows: list[dict]) -> go.Figure:
         title="주요 단어 발생 빈도",
         font={"family": FONT_FAMILY, "size": 13},
         xaxis={"title": "발생 빈도", "range": [0, max(highest * 1.28, 1)]},
-        yaxis={"title": "단어", "automargin": True},
-        margin={"t": 70, "b": 50, "l": 20, "r": 40},
+        yaxis={"automargin": True},
+        margin={"t": 70, "b": 60, "l": 90, "r": 48},
         showlegend=False,
         height=max(360, 42 * len(words) + 120),
     )
